@@ -1,0 +1,201 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, type FormEvent } from "react";
+import { ArrowLeft, Eye, EyeOff, HeartPulse, LogIn, UserPlus } from "lucide-react";
+import { entrar } from "@/lib/auth";
+
+export const Route = createFileRoute("/login")({
+  head: () => ({
+    meta: [
+      { title: "Acessar | ACS+ Saúde da Família" },
+      { name: "description", content: "Acesso das Agentes Comunitárias de Saúde de Jenipapo dos Vieiras/MA ao sistema ACS+." },
+      { property: "og:title", content: "Acessar | ACS+ Saúde da Família" },
+      { property: "og:description", content: "Entre ou crie sua conta de agente no ACS+." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
+  component: LoginPage,
+});
+
+function mascaraCpf(v: string) {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  return d
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatarIdentificador(v: string) {
+  if (/[a-zA-Z@]/.test(v)) return v;
+  return mascaraCpf(v);
+}
+
+const inputCls =
+  "w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30";
+const labelCls = "mb-1.5 block text-sm font-medium text-foreground";
+const btnPrimary =
+  "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50";
+
+function SenhaInput({ id, value, onChange, autoFocus }: { id: string; value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
+  const [ver, setVer] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type={ver ? "text" : "password"}
+        value={value}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputCls} pr-11`}
+        required
+      />
+      <button
+        type="button"
+        onClick={() => setVer((s) => !s)}
+        aria-label={ver ? "Ocultar senha" : "Mostrar senha"}
+        className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground"
+      >
+        {ver ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+function LoginPage() {
+  const navigate = useNavigate();
+  const [modo, setModo] = useState<"login" | "cadastro">("login");
+  const [etapa, setEtapa] = useState<1 | 2>(1);
+  const [identificador, setIdentificador] = useState("");
+  const [senha, setSenha] = useState("");
+  const [nome, setNome] = useState("Iracélia Felício");
+  const [cpf, setCpf] = useState("");
+  const [ubs, setUbs] = useState("UBS Vila Esperança");
+  const [micro, setMicro] = useState("Microárea 01");
+  const [novaSenha, setNovaSenha] = useState("");
+
+  const concluir = () => {
+    entrar();
+    navigate({ to: "/dashboard", replace: true });
+  };
+
+  const onLogin = (e: FormEvent) => {
+    e.preventDefault();
+    if (etapa === 1) {
+      if (identificador.trim()) setEtapa(2);
+      return;
+    }
+    if (senha) concluir();
+  };
+
+  const onCadastro = (e: FormEvent) => {
+    e.preventDefault();
+    if (nome && cpf.length === 14 && novaSenha) concluir();
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-muted">
+      <main className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-xl shadow-foreground/5">
+          <div className="mb-7 flex flex-col items-center text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
+              <HeartPulse className="h-7 w-7" />
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-foreground">ACS+</p>
+            <p className="text-sm text-muted-foreground">Saúde da Família</p>
+          </div>
+
+          {modo === "login" ? (
+            <form onSubmit={onLogin} className="space-y-5">
+              <h1 className="text-xl font-semibold text-foreground">Acessar</h1>
+              {etapa === 1 ? (
+                <div>
+                  <label htmlFor="ident" className={labelCls}>Digite seu CPF ou E-mail</label>
+                  <input
+                    id="ident"
+                    value={identificador}
+                    onChange={(e) => setIdentificador(formatarIdentificador(e.target.value))}
+                    placeholder="000.000.000-00"
+                    className={inputCls}
+                    autoFocus
+                    required
+                  />
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setEtapa(1)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-3 w-3" /> {identificador}
+                  </button>
+                  <div>
+                    <label htmlFor="senha" className={labelCls}>Senha</label>
+                    <SenhaInput id="senha" value={senha} onChange={setSenha} autoFocus />
+                  </div>
+                </div>
+              )}
+              <button type="submit" className={btnPrimary}>
+                {etapa === 1 ? "Próximo" : (<><LogIn className="h-4 w-4" /> Entrar</>)}
+              </button>
+
+              <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
+                <span className="h-px flex-1 bg-border" /> OU <span className="h-px flex-1 bg-border" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModo("cadastro")}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent"
+              >
+                <UserPlus className="h-4 w-4" /> Cadastrar
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={onCadastro} className="space-y-4">
+              <h1 className="text-xl font-semibold text-foreground">Criar Conta de Agente</h1>
+              <div>
+                <label htmlFor="nome" className={labelCls}>Nome Completo</label>
+                <input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} className={inputCls} required />
+              </div>
+              <div>
+                <label htmlFor="cpf" className={labelCls}>CPF</label>
+                <input id="cpf" value={cpf} onChange={(e) => setCpf(mascaraCpf(e.target.value))} placeholder="000.000.000-00" className={inputCls} required />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="ubs" className={labelCls}>Unidade Básica de Saúde</label>
+                  <select id="ubs" value={ubs} onChange={(e) => setUbs(e.target.value)} className={inputCls}>
+                    <option>UBS Vila Esperança</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="micro" className={labelCls}>Microárea</label>
+                  <select id="micro" value={micro} onChange={(e) => setMicro(e.target.value)} className={inputCls}>
+                    <option>Microárea 01</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="nova" className={labelCls}>Criar Senha</label>
+                <SenhaInput id="nova" value={novaSenha} onChange={setNovaSenha} />
+              </div>
+              <button type="submit" className={btnPrimary} disabled={cpf.length !== 14 || !novaSenha || !nome}>
+                Concluir Cadastro
+              </button>
+              <p className="text-center text-sm text-muted-foreground">
+                Já tenho conta /{" "}
+                <button type="button" onClick={() => { setModo("login"); setEtapa(1); }} className="font-semibold text-primary hover:underline">
+                  Entrar
+                </button>
+              </p>
+            </form>
+          )}
+        </div>
+      </main>
+      <footer className="px-4 pb-6 text-center text-xs text-muted-foreground">
+        Prefeitura Municipal de Jenipapo dos Vieiras/MA — Secretaria Municipal de Saúde
+      </footer>
+    </div>
+  );
+}
