@@ -20,9 +20,9 @@ export const Route = createFileRoute("/")({
     ],
   }),
   ssr: false,
-  beforeLoad: async () => { const { data } = await supabase.auth.getUser(); throw redirect({to: data.user ? "/dashboard" : "/login"}); },
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getUser();
+    throw redirect({ to: data.user ? "/dashboard" : "/login" });
+  },
   component: () => null,
 });
-
-export const familias: Record<string, import("@/lib/acs-model").Familia> = {};
-export const visitas: import("@/lib/acs-model").Morador[] = [];

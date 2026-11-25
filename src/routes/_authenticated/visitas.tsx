@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, ClipboardList, HeartPulse, Search, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
-import { DetalhesMoradorModal, RegistrarVisitaModal, visitas, type Morador } from "@/components/ACSPanel";
+import { DetalhesMoradorModal, RegistrarVisitaModal, type Morador } from "@/components/ACSPanel";
+import { useACS } from "@/lib/acs-workspace";
+import type { RegistroVisita } from "@/lib/acs-model";
 import { ExportarRelatorioButton } from "@/components/RelatorioPdfModal";
 
 export const Route = createFileRoute("/_authenticated/visitas")({
@@ -16,7 +18,8 @@ export const Route = createFileRoute("/_authenticated/visitas")({
       { property: "og:title", content: "ACS+ | Histórico de Visitas Domiciliares" },
       {
         property: "og:description",
-        content: "Registro de visitas domiciliares com morador, motivo, desfecho e ACS responsável.",
+        content:
+          "Registro de visitas domiciliares com morador, motivo, desfecho e ACS responsável.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -25,100 +28,7 @@ export const Route = createFileRoute("/_authenticated/visitas")({
   component: VisitasPage,
 });
 
-type RegistroVisita = {
-  id: number;
-  data: string;
-  moradorNome: string;
-  motivo: string;
-  desfecho: "Realizada" | "Recusada" | "Ausente";
-  observacoes: string;
-  acs: string;
-};
-
-const ACS_NOME = "Iracélia Felício";
-
-const registros: RegistroVisita[] = [
-  {
-    id: 1,
-    data: "12/07/2026",
-    moradorNome: "INGLYD MARIA ALVES RESPLANDES MIRANDA",
-    motivo: "Acompanhamento pré-natal — Gestante",
-    desfecho: "Realizada",
-    observacoes:
-      "Gestante de 28 semanas, sem queixas. Orientada sobre sinais de alerta e reforçada a importância das consultas de pré-natal na UBS Vila Esperança.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 2,
-    data: "05/09/2026",
-    moradorNome: "MARIANO VIEIRA NEPOMUCENO JÚNIOR",
-    motivo: "Acompanhamento de hipertensão arterial",
-    desfecho: "Realizada",
-    observacoes:
-      "PA aferida: 138x88 mmHg. Em uso regular de losartana. Orientado sobre redução de sal e atividade física leve.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 3,
-    data: "28/08/2026",
-    moradorNome: "Ana Beatriz Ribeiro",
-    motivo: "Puericultura — acompanhamento de criança menor de 2 anos",
-    desfecho: "Realizada",
-    observacoes:
-      "Criança com desenvolvimento adequado para a idade. Caderneta de vacinação em dia. Mãe orientada sobre aleitamento e introdução alimentar.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 4,
-    data: "20/08/2026",
-    moradorNome: "José Ferreira Lima",
-    motivo: "Busca ativa — Diabético sem retorno à UBS",
-    desfecho: "Ausente",
-    observacoes:
-      "Morador ausente no horário combinado. Vizinhos informaram que trabalha fora durante o dia. Nova tentativa agendada para o período da tarde.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 5,
-    data: "15/08/2026",
-    moradorNome: "Maria José dos Santos",
-    motivo: "Acompanhamento de idosa acamada",
-    desfecho: "Realizada",
-    observacoes:
-      "Idosa acamada, cuidada pela filha. Sem lesões de pele. Orientada a família sobre mudanças de decúbito e hidratação.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 6,
-    data: "08/08/2026",
-    moradorNome: "Carlos Eduardo Matos",
-    motivo: "Vacinação — atualização de caderneta",
-    desfecho: "Recusada",
-    observacoes:
-      "Morador recusou a dose de reforço no momento. Foram esclarecidas dúvidas sobre segurança da vacina e deixado o convite para a UBS.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 7,
-    data: "01/08/2026",
-    moradorNome: "INGLYD MARIA ALVES RESPLANDES MIRANDA",
-    motivo: "Acompanhamento pré-natal — Gestante",
-    desfecho: "Realizada",
-    observacoes:
-      "Verificada a caderneta da gestante. Exames do 2º trimestre em dia. Próxima consulta de pré-natal agendada.",
-    acs: ACS_NOME,
-  },
-  {
-    id: 8,
-    data: "25/07/2026",
-    moradorNome: "MARIANO VIEIRA NEPOMUCENO JÚNIOR",
-    motivo: "Acompanhamento de hipertensão arterial",
-    desfecho: "Realizada",
-    observacoes:
-      "PA aferida: 142x90 mmHg. Reforçada adesão ao tratamento e entregue nova receita para renovação na farmácia da UBS.",
-    acs: ACS_NOME,
-  },
-];
+const dataIso = (d: string) => d.split("/").reverse().join("-");
 
 const desfechoClasses: Record<RegistroVisita["desfecho"], string> = {
   Realizada: "border-success/30 bg-success/10 text-success",
@@ -127,6 +37,11 @@ const desfechoClasses: Record<RegistroVisita["desfecho"], string> = {
 };
 
 function VisitasPage() {
+  const { visitas, registros: registrosBrutos } = useACS();
+  const registros = useMemo(
+    () => [...registrosBrutos].sort((a, b) => (dataIso(b.data) > dataIso(a.data) ? 1 : -1)),
+    [registrosBrutos],
+  );
   const [busca, setBusca] = useState("");
   const [selecionada, setSelecionada] = useState<RegistroVisita | null>(null);
   const [moradorDetalhe, setMoradorDetalhe] = useState<Morador | null>(null);
@@ -142,7 +57,7 @@ function VisitasPage() {
         r.desfecho.toLowerCase().includes(termo) ||
         r.data.includes(termo),
     );
-  }, [busca]);
+  }, [busca, registros]);
 
   const moradorDaVisita = (nome: string) => visitas.find((m) => m.nome === nome);
 
@@ -155,7 +70,7 @@ function VisitasPage() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-sm font-semibold">Visitas Domiciliares</h1>
         <Link
-          to="/"
+          to="/dashboard"
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
@@ -172,7 +87,7 @@ function VisitasPage() {
               Clique em qualquer visita da tabela para ver os detalhes completos do registro.
             </p>
           </div>
-          <ExportarRelatorioButton registros={registros} className="bg-primary text-primary-foreground" />
+          <ExportarRelatorioButton className="bg-primary text-primary-foreground" />
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -218,7 +133,9 @@ function VisitasPage() {
             </tbody>
           </table>
           {lista.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhuma visita encontrada.</p>
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+              Nenhuma visita encontrada.
+            </p>
           )}
         </div>
       </main>
@@ -240,7 +157,7 @@ function VisitasPage() {
                   <Stethoscope className="h-5 w-5 text-primary" /> Detalhes da Visita
                 </h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  Registro #{selecionada.id} · {selecionada.data}
+                  Registro de {selecionada.data}
                 </p>
               </div>
               <button
@@ -254,7 +171,9 @@ function VisitasPage() {
 
             <div className="mt-5 space-y-4 text-sm">
               <div className="rounded-lg border p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Morador Visitado</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Morador Visitado
+                </p>
                 {moradorDaVisita(selecionada.moradorNome) ? (
                   <button
                     type="button"
@@ -280,11 +199,15 @@ function VisitasPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Data da Visita</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Data da Visita
+                  </p>
                   <p className="mt-1 font-medium">{selecionada.data}</p>
                 </div>
                 <div className="rounded-lg border p-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Desfecho</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Desfecho
+                  </p>
                   <span
                     className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${desfechoClasses[selecionada.desfecho]}`}
                   >
@@ -294,7 +217,9 @@ function VisitasPage() {
               </div>
 
               <div className="rounded-lg border p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Motivo Detalhado</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Motivo Detalhado
+                </p>
                 <p className="mt-1">{selecionada.motivo}</p>
               </div>
 
@@ -306,7 +231,9 @@ function VisitasPage() {
               </div>
 
               <div className="rounded-lg border p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">ACS Responsável</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  ACS Responsável
+                </p>
                 <p className="mt-1 font-medium">{selecionada.acs}</p>
               </div>
             </div>

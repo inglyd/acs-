@@ -30,3 +30,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Saídas de build de deploy
+.vercel
+.netlify

@@ -5,9 +5,16 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
       { title: "Dashboard | ACS+ Jenipapo dos Vieiras" },
-      { name: "description", content: "Painel da agente comunitária com indicadores, metas e visitas prioritárias da microárea." },
+      {
+        name: "description",
+        content:
+          "Painel da agente comunitária com indicadores, metas e visitas prioritárias da microárea.",
+      },
       { property: "og:title", content: "Dashboard | ACS+ Jenipapo dos Vieiras" },
-      { property: "og:description", content: "Indicadores, metas e visitas prioritárias da microárea." },
+      {
+        property: "og:description",
+        content: "Indicadores, metas e visitas prioritárias da microárea.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -15,4 +22,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardProtegido,
 });
 
-function DashboardProtegido() { return <DashboardPage />; }
+function DashboardProtegido() {
+  return <DashboardPage />;
+}

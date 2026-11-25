@@ -9,7 +9,10 @@ import {
   Stethoscope,
   TriangleAlert,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { RegistrarVisitaModal } from "@/components/ACSPanel";
+import { prazoMorador } from "@/lib/acs-model";
+import { useACS } from "@/lib/acs-workspace";
 
 export const Route = createFileRoute("/_authenticated/alertas")({
   head: () => ({
@@ -35,24 +38,16 @@ export const Route = createFileRoute("/_authenticated/alertas")({
 type Alerta = {
   nome: string;
   endereco: string;
-  microarea: "MA-01" | "MA-02" | "MA-03";
-  condicao: "Gestante" | "Acamado" | "Hipertenso" | "Diabético" | "Idoso" | "Tuberculose";
+  microarea: string;
+  condicao: string;
+  motivo: string;
   diasAtraso: number;
   prioridade: 1 | 2 | 3;
 };
 
-const alertas: Alerta[] = [
-  { nome: "Maria José da Silva", endereco: "Rua das Palmeiras, 42", microarea: "MA-01", condicao: "Gestante", diasAtraso: 41, prioridade: 1 },
-  { nome: "Raimundo Nonato Costa", endereco: "Beco da Ladeira, 9", microarea: "MA-03", condicao: "Tuberculose", diasAtraso: 38, prioridade: 1 },
-  { nome: "Cicera Maria Almeida", endereco: "Rua Nova Esperança, 150", microarea: "MA-02", condicao: "Acamado", diasAtraso: 36, prioridade: 1 },
-  { nome: "Francisca Oliveira Lima", endereco: "Rua do Campo, 77", microarea: "MA-01", condicao: "Diabético", diasAtraso: 33, prioridade: 2 },
-  { nome: "José Pereira dos Santos", endereco: "Tv. São José, 18", microarea: "MA-01", condicao: "Hipertenso", diasAtraso: 31, prioridade: 2 },
-  { nome: "Sebastião Ferreira Melo", endereco: "Av. Central, 410", microarea: "MA-02", condicao: "Idoso", diasAtraso: 45, prioridade: 2 },
-  { nome: "Luzia Fernandes Rocha", endereco: "Rua das Flores, 23", microarea: "MA-03", condicao: "Gestante", diasAtraso: 32, prioridade: 1 },
-  { nome: "Antônio Cardoso Neto", endereco: "Tv. São José, 90", microarea: "MA-01", condicao: "Diabético", diasAtraso: 47, prioridade: 2 },
-];
+const CONDICOES_PRIORITARIAS = ["Gestante", "Acamado", "Tuberculose"];
 
-const condicaoIcone: Record<Alerta["condicao"], typeof Baby> = {
+const condicaoIcone: Record<string, typeof Baby> = {
   Gestante: Baby,
   Acamado: BedDouble,
   Hipertenso: HeartPulse,
@@ -68,7 +63,33 @@ const prioridadeLabel: Record<Alerta["prioridade"], string> = {
 };
 
 function AlertasPage() {
+  const { visitas } = useACS();
   const [microarea, setMicroarea] = useState<string>("todas");
+  const [visitaPara, setVisitaPara] = useState<{ nome: string; motivo: string } | null>(null);
+
+  const alertas = useMemo<Alerta[]>(
+    () =>
+      visitas
+        .map((m) => ({ m, diasAtraso: prazoMorador(m).diasAtraso }))
+        .filter(({ diasAtraso }) => diasAtraso > 0)
+        .map(({ m, diasAtraso }) => {
+          const condicao =
+            m.condicoes.find((c) => CONDICOES_PRIORITARIAS.includes(c)) ??
+            m.condicoes[0] ??
+            "Acompanhamento";
+          return {
+            nome: m.nome,
+            endereco: m.endereco,
+            microarea: m.microarea,
+            condicao,
+            motivo: m.motivo,
+            diasAtraso,
+            prioridade: CONDICOES_PRIORITARIAS.includes(condicao) ? (1 as const) : (2 as const),
+          };
+        }),
+    [visitas],
+  );
+  const microareas = useMemo(() => [...new Set(alertas.map((a) => a.microarea))].sort(), [alertas]);
 
   const filtrados = alertas
     .filter((a) => microarea === "todas" || a.microarea === microarea)
@@ -83,7 +104,7 @@ function AlertasPage() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-sm font-semibold">Alertas & Pendências</h1>
         <Link
-          to="/"
+          to="/dashboard"
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
@@ -96,7 +117,11 @@ function AlertasPage() {
             <AlarmClock className="mt-0.5 h-6 w-6 text-destructive" />
             <div>
               <h2 className="font-semibold text-foreground">
-                {filtrados.length} moradores com visita em atraso há mais de 30 dias
+                {filtrados.length}{" "}
+                {filtrados.length === 1
+                  ? "morador com visita em atraso"
+                  : "moradores com visita em atraso"}{" "}
+                (mais de 30 dias)
               </h2>
               <p className="text-sm text-muted-foreground">
                 Ordenados por prioridade clínica — gestantes e acamados no topo.
@@ -112,24 +137,28 @@ function AlertasPage() {
               aria-label="Filtrar por microárea"
             >
               <option value="todas">Todas as microáreas</option>
-              <option value="MA-01">MA-01</option>
-              <option value="MA-02">MA-02</option>
-              <option value="MA-03">MA-03</option>
+              {microareas.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
         <div className="space-y-3">
           {filtrados.map((a) => {
-            const Icone = condicaoIcone[a.condicao];
+            const Icone = condicaoIcone[a.condicao] ?? HeartPulse;
             return (
               <div
-                key={a.nome}
+                key={`${a.nome}-${a.endereco}`}
                 className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center"
               >
                 <div
                   className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
-                    a.prioridade === 1 ? "bg-destructive/15 text-destructive" : "bg-warning/40 text-warning-foreground"
+                    a.prioridade === 1
+                      ? "bg-destructive/15 text-destructive"
+                      : "bg-warning/40 text-warning-foreground"
                   }`}
                 >
                   <Icone className="h-5 w-5" />
@@ -153,15 +182,27 @@ function AlertasPage() {
                   >
                     Prioridade {prioridadeLabel[a.prioridade]} · {a.diasAtraso} dias
                   </span>
-                  <button className="inline-flex items-center gap-1.5 rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-success-foreground hover:opacity-90">
+                  <button
+                    type="button"
+                    onClick={() => setVisitaPara({ nome: a.nome, motivo: a.motivo })}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-success px-3 py-1.5 text-xs font-semibold text-success-foreground hover:opacity-90"
+                  >
                     <Stethoscope className="h-3.5 w-3.5" /> Registrar Visita
                   </button>
                 </div>
               </div>
             );
           })}
+          {filtrados.length === 0 && (
+            <p className="rounded-xl border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+              Nenhuma visita em atraso. Bom trabalho!
+            </p>
+          )}
         </div>
       </main>
+      {visitaPara && (
+        <RegistrarVisitaModal morador={visitaPara} onClose={() => setVisitaPara(null)} />
+      )}
     </div>
   );
 }

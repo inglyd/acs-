@@ -1,15 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  HeartPulse,
-  Home,
-  MapPin,
-  Plus,
-  Users,
-  UsersRound,
-  ArrowLeft,
-} from "lucide-react";
+import { HeartPulse, Home, MapPin, Plus, Users, UsersRound, ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { NovoCadastroWizard } from "@/components/NovoCadastroWizard";
+import { useACS } from "@/lib/acs-workspace";
 
 export const Route = createFileRoute("/_authenticated/cadastros")({
   head: () => ({
@@ -23,8 +17,7 @@ export const Route = createFileRoute("/_authenticated/cadastros")({
       { property: "og:title", content: "ACS+ | Cadastros" },
       {
         property: "og:description",
-        content:
-          "Cadastro territorial, familiar e individual dos moradores da microárea.",
+        content: "Cadastro territorial, familiar e individual dos moradores da microárea.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -36,9 +29,24 @@ export const Route = createFileRoute("/_authenticated/cadastros")({
 type Aba = "territorial" | "familiar" | "individual";
 
 const abas: { id: Aba; label: string; icon: typeof MapPin; desc: string }[] = [
-  { id: "territorial", label: "Cadastro Territorial", icon: MapPin, desc: "Logradouros e áreas da microárea" },
-  { id: "familiar", label: "Cadastro Familiar", icon: UsersRound, desc: "Famílias e responsáveis de cada domicílio" },
-  { id: "individual", label: "Cadastro Individual", icon: Users, desc: "Moradores e condições de saúde" },
+  {
+    id: "territorial",
+    label: "Cadastro Territorial",
+    icon: MapPin,
+    desc: "Logradouros e áreas da microárea",
+  },
+  {
+    id: "familiar",
+    label: "Cadastro Familiar",
+    icon: UsersRound,
+    desc: "Famílias e responsáveis de cada domicílio",
+  },
+  {
+    id: "individual",
+    label: "Cadastro Individual",
+    icon: Users,
+    desc: "Moradores e condições de saúde",
+  },
 ];
 
 const condicoes = ["Gestante", "Hipertenso", "Diabético", "Acamado", "Idoso", "Tuberculose"];
@@ -56,15 +64,49 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** Lê os campos do formulário usando o rótulo visível de cada campo como chave. */
+function coletarCampos(form: HTMLFormElement) {
+  const campos: Record<string, string | boolean> = {};
+  for (const el of Array.from(form.elements)) {
+    if (!(
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLSelectElement ||
+      el instanceof HTMLTextAreaElement
+    ))
+      continue;
+    const rotulo =
+      el.closest("label")?.textContent?.trim() ||
+      el.closest("div")?.querySelector("label")?.textContent?.trim() ||
+      el.getAttribute("placeholder") ||
+      "";
+    if (!rotulo) continue;
+    if (el instanceof HTMLInputElement && el.type === "checkbox") campos[rotulo] = el.checked;
+    else if (el.value.trim() !== "") campos[rotulo] = el.value.trim();
+  }
+  return campos;
+}
+
 function CadastrosPage() {
+  const { salvar: salvarNaConta } = useACS();
+  const [salvando, setSalvando] = useState(false);
   const [aba, setAba] = useState<Aba>("territorial");
   const [salvo, setSalvo] = useState(false);
   const [wizard, setWizard] = useState(false);
 
-  const salvar = (e: React.FormEvent) => {
+  const salvar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 3000);
+    const form = e.currentTarget;
+    setSalvando(true);
+    try {
+      await salvarNaConta("cadastro", { aba, campos: coletarCampos(form) });
+      form.reset();
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o cadastro.");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -76,7 +118,7 @@ function CadastrosPage() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-sm font-semibold">Cadastros</h1>
         <Link
-          to="/"
+          to="/dashboard"
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
@@ -107,7 +149,9 @@ function CadastrosPage() {
               }`}
             >
               <div className="flex items-center gap-2">
-                <a.icon className={`h-5 w-5 ${aba === a.id ? "text-primary" : "text-muted-foreground"}`} />
+                <a.icon
+                  className={`h-5 w-5 ${aba === a.id ? "text-primary" : "text-muted-foreground"}`}
+                />
                 <span className="text-sm font-semibold">{a.label}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{a.desc}</p>
@@ -115,7 +159,10 @@ function CadastrosPage() {
           ))}
         </div>
 
-        <form onSubmit={salvar} className="rounded-xl border bg-card p-6 shadow-sm md:p-8">
+        <form
+          onSubmit={(e) => void salvar(e)}
+          className="rounded-xl border bg-card p-6 shadow-sm md:p-8"
+        >
           {aba === "territorial" && (
             <div className="space-y-5">
               <h2 className="text-lg font-semibold">Cadastro Territorial / Logradouro</h2>
@@ -185,12 +232,17 @@ function CadastrosPage() {
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {["Água encanada", "Energia elétrica", "Coleta de lixo", "Saneamento"].map((item) => (
-                  <label key={item} className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
-                    <input type="checkbox" className="h-4 w-4 accent-[oklch(0.55_0.14_250)]" />
-                    {item}
-                  </label>
-                ))}
+                {["Água encanada", "Energia elétrica", "Coleta de lixo", "Saneamento"].map(
+                  (item) => (
+                    <label
+                      key={item}
+                      className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm"
+                    >
+                      <input type="checkbox" className="h-4 w-4 accent-[oklch(0.55_0.14_250)]" />
+                      {item}
+                    </label>
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -220,7 +272,10 @@ function CadastrosPage() {
                 <p className={labelCls}>Condições de Saúde Prioritárias</p>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {condicoes.map((c) => (
-                    <label key={c} className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                    <label
+                      key={c}
+                      className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm"
+                    >
                       <input type="checkbox" className="h-4 w-4 accent-[oklch(0.6_0.15_160)]" />
                       {c}
                     </label>
@@ -233,11 +288,15 @@ function CadastrosPage() {
           <div className="mt-8 flex items-center gap-3 border-t pt-6">
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              disabled={salvando}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 disabled:opacity-50 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              <Plus className="h-4 w-4" /> Salvar Cadastro
+              <Plus className="h-4 w-4" /> {salvando ? "Salvando..." : "Salvar Cadastro"}
             </button>
-            <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-lg border border-input px-5 py-2.5 text-sm font-medium hover:bg-muted">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 rounded-lg border border-input px-5 py-2.5 text-sm font-medium hover:bg-muted"
+            >
               <Home className="h-4 w-4" /> Cancelar
             </Link>
             {salvo && (

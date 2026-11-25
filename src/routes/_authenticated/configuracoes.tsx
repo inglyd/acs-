@@ -10,6 +10,10 @@ import {
   Type,
   UserCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
+import { alterarSenha } from "@/lib/auth";
+import { iniciais } from "@/lib/acs-model";
+import { useACS } from "@/lib/acs-workspace";
 import { useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -24,7 +28,8 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
       { property: "og:title", content: "ACS+ | Configurações do Sistema" },
       {
         property: "og:description",
-        content: "Perfil do agente, preferências visuais, notificações e sincronização de dados do ACS+.",
+        content:
+          "Perfil do agente, preferências visuais, notificações e sincronização de dados do ACS+.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -70,30 +75,65 @@ function Toggle({
   );
 }
 
+const agora = () => new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
 function ConfiguracoesPage() {
-  const [modoEscuro, setModoEscuro] = useState(false);
-  const [tamanhoTexto, setTamanhoTexto] = useState<"Pequeno" | "Padrão" | "Grande">("Padrão");
-  const [alertaAtraso, setAlertaAtraso] = useState(true);
-  const [alertaVacina, setAlertaVacina] = useState(true);
+  const { perfil, preferencias, salvar, refresh } = useACS();
+  const [prefs, setPrefs] = useState(preferencias);
   const [sincronizando, setSincronizando] = useState(false);
-  const [ultimaSync, setUltimaSync] = useState("23/09/2026 às 08:45");
+  const [ultimaSync, setUltimaSync] = useState(agora);
   const [alterarSenhaAberto, setAlterarSenhaAberto] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [erroSenha, setErroSenha] = useState("");
   const [senhaSalva, setSenhaSalva] = useState(false);
+  const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
 
-  const sincronizar = () => {
+  const sincronizar = async () => {
     setSincronizando(true);
-    setTimeout(() => {
+    try {
+      await refresh();
+      setUltimaSync(agora());
+    } catch {
+      toast.error("Não foi possível sincronizar. Verifique a conexão.");
+    } finally {
       setSincronizando(false);
-      setUltimaSync("23/09/2026 às 09:27");
-    }, 1500);
+    }
+  };
+
+  const salvarPreferencias = async () => {
+    setSalvando(true);
+    try {
+      await salvar("preferencias", prefs);
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 2500);
+    } catch {
+      toast.error("Não foi possível salvar as alterações.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const confirmarSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErroSenha("");
+    try {
+      await alterarSenha(senhaAtual, novaSenha);
+      setSenhaSalva(true);
+      setSenhaAtual("");
+      setNovaSenha("");
+      setTimeout(() => setAlterarSenhaAberto(false), 1500);
+    } catch (err) {
+      setErroSenha(err instanceof Error ? err.message : "Não foi possível alterar a senha.");
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Link
-          to="/"
+          to="/dashboard"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -121,17 +161,17 @@ function ConfiguracoesPage() {
             </div>
             <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground">
-                IF
+                {iniciais(perfil.nome)}
               </div>
               <div className="flex-1">
-                <p className="text-lg font-semibold text-foreground">Iracélia Felício</p>
+                <p className="text-lg font-semibold text-foreground">{perfil.nome}</p>
                 <p className="text-sm text-muted-foreground">Agente Comunitária de Saúde</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   <span className="rounded-full bg-secondary px-3 py-1 font-medium text-secondary-foreground">
-                    UBS Vila Esperança
+                    {perfil.ubs}
                   </span>
                   <span className="rounded-full bg-accent px-3 py-1 font-medium text-accent-foreground">
-                    Microárea 01
+                    {perfil.microarea}
                   </span>
                   <span className="rounded-full bg-secondary px-3 py-1 font-medium text-secondary-foreground">
                     Jenipapo dos Vieiras/MA
@@ -143,6 +183,7 @@ function ConfiguracoesPage() {
                 onClick={() => {
                   setAlterarSenhaAberto(true);
                   setSenhaSalva(false);
+                  setErroSenha("");
                 }}
                 className="inline-flex items-center gap-2 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
               >
@@ -154,11 +195,7 @@ function ConfiguracoesPage() {
             {alterarSenhaAberto && (
               <form
                 className="mt-5 space-y-3 rounded-lg border bg-muted/40 p-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSenhaSalva(true);
-                  setTimeout(() => setAlterarSenhaAberto(false), 1500);
-                }}
+                onSubmit={(e) => void confirmarSenha(e)}
               >
                 {senhaSalva ? (
                   <p className="rounded-lg bg-success/15 px-4 py-3 text-sm font-medium text-success">
@@ -171,16 +208,27 @@ function ConfiguracoesPage() {
                         type="password"
                         required
                         placeholder="Senha atual"
+                        autoComplete="current-password"
+                        value={senhaAtual}
+                        onChange={(e) => setSenhaAtual(e.target.value)}
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                       />
                       <input
                         type="password"
                         required
                         minLength={6}
-                        placeholder="Nova senha"
+                        placeholder="Nova senha (mínimo 6 caracteres)"
+                        autoComplete="new-password"
+                        value={novaSenha}
+                        onChange={(e) => setNovaSenha(e.target.value)}
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
                       />
                     </div>
+                    {erroSenha && (
+                      <p role="alert" className="text-sm text-destructive">
+                        {erroSenha}
+                      </p>
+                    )}
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
@@ -210,8 +258,8 @@ function ConfiguracoesPage() {
             </div>
             <div className="mt-3 divide-y divide-border">
               <Toggle
-                checked={modoEscuro}
-                onChange={setModoEscuro}
+                checked={prefs.modoEscuro}
+                onChange={(v) => setPrefs((p) => ({ ...p, modoEscuro: v }))}
                 label="Modo Escuro"
                 description="Reduz o brilho da tela para uso noturno em campo."
               />
@@ -220,7 +268,9 @@ function ConfiguracoesPage() {
                   <Type className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium text-foreground">Tamanho do texto</p>
-                    <p className="text-xs text-muted-foreground">Ajusta a legibilidade do painel.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ajusta a legibilidade do painel.
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -228,9 +278,9 @@ function ConfiguracoesPage() {
                     <button
                       key={t}
                       type="button"
-                      onClick={() => setTamanhoTexto(t)}
+                      onClick={() => setPrefs((p) => ({ ...p, tamanhoTexto: t }))}
                       className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                        tamanhoTexto === t
+                        prefs.tamanhoTexto === t
                           ? "bg-primary text-primary-foreground"
                           : "border border-input text-foreground hover:bg-muted"
                       }`}
@@ -251,14 +301,14 @@ function ConfiguracoesPage() {
             </div>
             <div className="mt-3 divide-y divide-border">
               <Toggle
-                checked={alertaAtraso}
-                onChange={setAlertaAtraso}
+                checked={prefs.alertaAtraso}
+                onChange={(v) => setPrefs((p) => ({ ...p, alertaAtraso: v }))}
                 label="Alertas de visitas atrasadas"
                 description="Avisos sobre visitas fora do prazo na microárea."
               />
               <Toggle
-                checked={alertaVacina}
-                onChange={setAlertaVacina}
+                checked={prefs.alertaVacina}
+                onChange={(v) => setPrefs((p) => ({ ...p, alertaVacina: v }))}
                 label="Vacinas pendentes"
                 description="Lembretes de imunização em atraso dos moradores."
               />
@@ -273,9 +323,10 @@ function ConfiguracoesPage() {
             </div>
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-foreground">Envio de dados offline</p>
+                <p className="text-sm font-medium text-foreground">Sincronização com o servidor</p>
                 <p className="text-xs text-muted-foreground">
-                  Registros coletados sem internet são enviados ao sistema assim que houver conexão.
+                  Atualiza os dados desta conta com o servidor. Cadastros e visitas são salvos na
+                  hora e exigem conexão com a internet.
                 </p>
                 <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success/15 px-3 py-1 text-xs font-medium text-success">
                   <span className="h-1.5 w-1.5 rounded-full bg-success" />
@@ -284,7 +335,7 @@ function ConfiguracoesPage() {
               </div>
               <button
                 type="button"
-                onClick={sincronizar}
+                onClick={() => void sincronizar()}
                 disabled={sincronizando}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
               >
@@ -317,13 +368,11 @@ function ConfiguracoesPage() {
             )}
             <button
               type="button"
-              onClick={() => {
-                setSalvo(true);
-                setTimeout(() => setSalvo(false), 2500);
-              }}
+              disabled={salvando}
+              onClick={() => void salvarPreferencias()}
               className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
-              Salvar alterações
+              {salvando ? "Salvando..." : "Salvar alterações"}
             </button>
           </div>
         </div>

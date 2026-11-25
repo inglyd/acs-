@@ -1,27 +1,37 @@
 import { useMemo, useState } from "react";
 import { FileText, Printer, X } from "lucide-react";
-import { visitas } from "@/routes/index";
+import { useACS } from "@/lib/acs-workspace";
+import { resumo } from "@/lib/acs-model";
 
-export type RegistroRelatorio = { data: string; moradorNome: string; motivo: string; desfecho: string };
+export type RegistroRelatorio = {
+  data: string;
+  moradorNome: string;
+  motivo: string;
+  desfecho: string;
+};
 
 const MESES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
 ];
-const ACS = "Iracélia Felício";
-const LOTACAO = "Microárea 01 - UBS Vila Esperança - Jenipapo dos Vieiras/MA";
-const TOTAL_FAMILIAS = 176;
 
 const esc = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 
-export function ExportarRelatorioButton({
-  registros = [],
-  className = "",
-}: {
-  registros?: RegistroRelatorio[];
-  className?: string;
-}) {
+export function ExportarRelatorioButton({ className = "" }: { className?: string }) {
   const [aberto, setAberto] = useState(false);
   return (
     <>
@@ -32,14 +42,19 @@ export function ExportarRelatorioButton({
       >
         <Printer className="h-4 w-4" /> Exportar Relatório PDF
       </button>
-      {aberto && <RelatorioPdfModal registros={registros} onClose={() => setAberto(false)} />}
+      {aberto && <RelatorioPdfModal onClose={() => setAberto(false)} />}
     </>
   );
 }
 
-function RelatorioPdfModal({ registros, onClose }: { registros: RegistroRelatorio[]; onClose: () => void }) {
-  const [mes, setMes] = useState(8);
-  const [ano, setAno] = useState(2026);
+function RelatorioPdfModal({ onClose }: { onClose: () => void }) {
+  const conta = useACS();
+  const { perfil, registros, visitas } = conta;
+  const ACS = perfil.nome;
+  const LOTACAO = `${perfil.microarea} - ${perfil.ubs} - Jenipapo dos Vieiras/MA`;
+  const TOTAL_FAMILIAS = resumo(conta).familias;
+  const [mes, setMes] = useState(() => new Date().getMonth());
+  const [ano, setAno] = useState(() => new Date().getFullYear());
 
   const dados = useMemo(() => {
     const doMes = registros.filter((r) => {
@@ -47,19 +62,18 @@ function RelatorioPdfModal({ registros, onClose }: { registros: RegistroRelatori
       return Number(m) === mes + 1 && Number(a) === ano;
     });
     const realizadas = doMes.filter((r) => r.desfecho === "Realizada").length;
-    const conta = (c: string) => visitas.filter((v) => v.condicoes.includes(c)).length;
+    const contar = (c: string) => visitas.filter((v) => v.condicoes.includes(c)).length;
     const criancas = visitas.filter((v) => v.idade < 10).length;
     const grupos = [
-      { nome: "Gestantes", total: conta("Gestante") },
-      { nome: "Hipertensos", total: conta("Hipertenso") },
-      { nome: "Diabéticos", total: conta("Diabético") },
+      { nome: "Gestantes", total: contar("Gestante") },
+      { nome: "Hipertensos", total: contar("Hipertenso") },
+      { nome: "Diabéticos", total: contar("Diabético") },
       { nome: "Crianças / Vacinação", total: criancas },
     ];
-    // Visitas do mês no sistema: registros detalhados ou consolidado do painel (29 em Setembro/2026)
-    const totalVisitas = doMes.length || (mes === 8 && ano === 2026 ? 29 : 0);
-    const totalRealizadas = doMes.length ? realizadas : totalVisitas;
+    const totalVisitas = doMes.length;
+    const totalRealizadas = realizadas;
     return { doMes, grupos, totalVisitas, totalRealizadas };
-  }, [registros, mes, ano]);
+  }, [registros, visitas, mes, ano]);
 
   const imprimir = () => {
     const ref = `${MESES[mes]}/${ano}`;
@@ -70,7 +84,7 @@ function RelatorioPdfModal({ registros, onClose }: { registros: RegistroRelatori
               `<tr><td>${esc(r.data)}</td><td>${esc(r.moradorNome)}</td><td>${esc(r.motivo)}</td><td>${esc(r.desfecho)}</td></tr>`,
           )
           .join("")
-      : `<tr><td colspan="4" class="vazio">Visitas consolidadas no painel (${dados.totalVisitas}). Detalhamento individual disponível no histórico de visitas.</td></tr>`;
+      : `<tr><td colspan="4" class="vazio">Nenhuma visita registrada neste período.</td></tr>`;
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório de Produção - ${ref}</title>
 <style>
 @page{size:A4;margin:16mm}
@@ -88,8 +102,8 @@ th{background:#eff6ff;font-size:11px;text-transform:uppercase}.vazio{text-align:
 <div class="cab"><div><h1>ACS+ · Relatório de Produção Mensal</h1><p>Ficha de Produção / Acompanhamento — e-SUS APS</p></div>
 <div style="text-align:right"><p><strong>Competência:</strong> ${ref}</p><p>Emitido em ${new Date().toLocaleDateString("pt-BR")}</p></div></div>
 <h2>Identificação do Agente</h2>
-<div class="grid"><div class="box"><span>Agente Comunitária de Saúde</span><b style="font-size:14px">${ACS}</b></div>
-<div class="box"><span>Lotação</span><b style="font-size:14px">${LOTACAO}</b></div></div>
+<div class="grid"><div class="box"><span>Agente Comunitária de Saúde</span><b style="font-size:14px">${esc(ACS)}</b></div>
+<div class="box"><span>Lotação</span><b style="font-size:14px">${esc(LOTACAO)}</b></div></div>
 <h2>Produção do Mês</h2>
 <div class="grid"><div class="box"><span>Total de Famílias Acompanhadas</span><b>${TOTAL_FAMILIAS}</b></div>
 <div class="box"><span>Total de Visitas Realizadas no Mês</span><b>${dados.totalRealizadas}</b></div></div>
@@ -98,7 +112,7 @@ th{background:#eff6ff;font-size:11px;text-transform:uppercase}.vazio{text-align:
 ${dados.grupos.map((g) => `<tr><td>${g.nome}</td><td>${g.total}</td></tr>`).join("")}</tbody></table>
 <h2>Visitas Domiciliares Registradas</h2>
 <table><thead><tr><th>Data</th><th>Morador</th><th>Motivo</th><th>Desfecho</th></tr></thead><tbody>${linhas}</tbody></table>
-<div class="ass"><div>${ACS}<br>Agente Comunitária de Saúde</div><div>Enfermeiro(a) Supervisor(a)<br>UBS Vila Esperança</div></div>
+<div class="ass"><div>${esc(ACS)}<br>Agente Comunitária de Saúde</div><div>Enfermeiro(a) Supervisor(a)<br>${esc(perfil.ubs)}</div></div>
 <p class="rod">Documento gerado pelo ACS+ v1.0.0 — Sistema de Gestão de Saúde da Família · Jenipapo dos Vieiras/MA</p>
 <script>window.onload=function(){window.print()}</script></body></html>`;
     const w = window.open("", "_blank");
@@ -115,7 +129,10 @@ ${dados.grupos.map((g) => `<tr><td>${g.nome}</td><td>${g.total}</td></tr>`).join
     "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-label="Gerar Relatório de Produção Mensal"
@@ -134,23 +151,35 @@ ${dados.grupos.map((g) => `<tr><td>${g.nome}</td><td>${g.total}</td></tr>`).join
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block font-medium">Mês de referência</label>
-              <select className={selectCls} value={mes} onChange={(e) => setMes(Number(e.target.value))}>
+              <select
+                className={selectCls}
+                value={mes}
+                onChange={(e) => setMes(Number(e.target.value))}
+              >
                 {MESES.map((m, i) => (
-                  <option key={m} value={i}>{m}</option>
+                  <option key={m} value={i}>
+                    {m}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
               <label className="mb-1.5 block font-medium">Ano</label>
-              <select className={selectCls} value={ano} onChange={(e) => setAno(Number(e.target.value))}>
-                {[2025, 2026, 2027].map((a) => (
+              <select
+                className={selectCls}
+                value={ano}
+                onChange={(e) => setAno(Number(e.target.value))}
+              >
+                {Array.from({ length: 3 }, (_, i) => new Date().getFullYear() - 1 + i).map((a) => (
                   <option key={a}>{a}</option>
                 ))}
               </select>
             </div>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Identificação do Agente</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Identificação do Agente
+            </p>
             <p className="mt-1 font-semibold">{ACS}</p>
             <p className="text-muted-foreground">{LOTACAO}</p>
           </div>
@@ -160,7 +189,9 @@ ${dados.grupos.map((g) => `<tr><td>${g.nome}</td><td>${g.total}</td></tr>`).join
               <p className="text-2xl font-bold text-primary">{TOTAL_FAMILIAS}</p>
             </div>
             <div className="rounded-lg border p-4">
-              <p className="text-xs text-muted-foreground">Visitas Realizadas ({MESES[mes]}/{ano})</p>
+              <p className="text-xs text-muted-foreground">
+                Visitas Realizadas ({MESES[mes]}/{ano})
+              </p>
               <p className="text-2xl font-bold text-success">{dados.totalRealizadas}</p>
             </div>
           </div>
@@ -179,7 +210,10 @@ ${dados.grupos.map((g) => `<tr><td>${g.nome}</td><td>${g.total}</td></tr>`).join
           </div>
         </div>
         <div className="flex justify-end gap-3 border-t p-5">
-          <button onClick={onClose} className="rounded-lg border border-input px-4 py-2.5 text-sm font-medium hover:bg-muted">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-input px-4 py-2.5 text-sm font-medium hover:bg-muted"
+          >
             Cancelar
           </button>
           <button

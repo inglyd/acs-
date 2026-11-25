@@ -1,13 +1,23 @@
 import { useState } from "react";
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, UserPlus, X } from "lucide-react";
-import { familias, visitas, type Morador } from "@/routes/index";
+import { toast } from "sonner";
+import type { Familia, Morador } from "@/lib/acs-model";
+import { useACS } from "@/lib/acs-workspace";
 
 const inputCls =
   "h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring";
 const labelCls = "mb-1.5 block text-sm font-medium text-foreground";
 
 const etapas = ["Família e Domicílio", "Identificação do Morador", "Perfil de Saúde"];
-const grupos = ["Gestante", "Hipertenso", "Diabético", "Idoso", "Acamado", "Tuberculose", "Hanseníase"];
+const grupos = [
+  "Gestante",
+  "Hipertenso",
+  "Diabético",
+  "Idoso",
+  "Acamado",
+  "Tuberculose",
+  "Hanseníase",
+];
 
 function mascaraCpf(v: string) {
   const d = v.replace(/\D/g, "").slice(0, 11);
@@ -37,11 +47,20 @@ function idadeDe(data: string) {
   if (isNaN(n.getTime())) return 0;
   const h = new Date();
   let i = h.getFullYear() - n.getFullYear();
-  if (h.getMonth() < n.getMonth() || (h.getMonth() === n.getMonth() && h.getDate() < n.getDate())) i--;
+  if (h.getMonth() < n.getMonth() || (h.getMonth() === n.getMonth() && h.getDate() < n.getDate()))
+    i--;
   return Math.max(i, 0);
 }
 
-function Field({ label, children, erro }: { label: string; children: React.ReactNode; erro?: string | undefined }) {
+function Field({
+  label,
+  children,
+  erro,
+}: {
+  label: string;
+  children: React.ReactNode;
+  erro?: string | undefined;
+}) {
   return (
     <div>
       <label className={labelCls}>{label}</label>
@@ -51,10 +70,22 @@ function Field({ label, children, erro }: { label: string; children: React.React
   );
 }
 
-export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => void; onConcluido?: () => void }) {
+export function NovoCadastroWizard({
+  onClose,
+  onConcluido,
+}: {
+  onClose: () => void;
+  onConcluido?: () => void;
+}) {
+  const { familias, cadastrar } = useACS();
+  const [salvando, setSalvando] = useState(false);
   const [etapa, setEtapa] = useState(0);
   const [sucesso, setSucesso] = useState(false);
-  const [erros, setErros] = useState<Partial<Record<"codigo"|"rua"|"numero"|"bairro"|"nome"|"nascimento"|"cpf"|"cns", string>>>({});
+  const [erros, setErros] = useState<
+    Partial<
+      Record<"codigo" | "rua" | "numero" | "bairro" | "nome" | "nascimento" | "cpf" | "cns", string>
+    >
+  >({});
   const [f, setF] = useState({
     codigo: `FAM-${String(180 + Object.keys(familias).length).padStart(4, "0")}`,
     rua: "",
@@ -77,7 +108,9 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const validar = () => {
-    const e: Partial<Record<"codigo"|"rua"|"numero"|"bairro"|"nome"|"nascimento"|"cpf"|"cns", string>> = {};
+    const e: Partial<
+      Record<"codigo" | "rua" | "numero" | "bairro" | "nome" | "nascimento" | "cpf" | "cns", string>
+    > = {};
     if (etapa === 0) {
       if (!f.codigo.trim()) e.codigo = "Informe o código da família.";
       if (!f.rua.trim()) e.rua = "Informe o logradouro.";
@@ -88,7 +121,8 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
       if (!f.nome.trim()) e.nome = "Informe o nome completo.";
       if (!f.nascimento) e.nascimento = "Informe a data de nascimento.";
       if (!f.cpf) e.cpf = "CPF é obrigatório.";
-      else if (!cpfValido(f.cpf)) e.cpf = "CPF inválido. Use o formato 000.000.000-00 com um número válido.";
+      else if (!cpfValido(f.cpf))
+        e.cpf = "CPF inválido. Use o formato 000.000.000-00 com um número válido.";
       if (f.cns && f.cns.replace(/\D/g, "").length !== 15) e.cns = "O CNS deve ter 15 dígitos.";
     }
     setErros(e);
@@ -97,7 +131,8 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
 
   const proximo = () => validar() && setEtapa((s) => s + 1);
 
-  const concluir = () => {
+  const concluir = async () => {
+    if (salvando) return;
     const idade = idadeDe(f.nascimento);
     const condicoes = [...f.grupos];
     if (f.vacina === "Pendente") condicoes.push("Vacina pendente");
@@ -123,8 +158,7 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
       ultimaVisita: "Sem visitas",
       statusProximaVisita: "Primeira visita em até 7 dias",
     };
-    visitas.push(novo);
-    familias[novo.nome] = {
+    const familia: Familia = {
       codigo: f.codigo,
       responsavel: f.parentesco === "Chefe de Família" ? novo.nome : "A definir",
       integrantes: [{ nome: novo.nome, parentesco: f.parentesco, idade, condicoes: f.grupos }],
@@ -135,12 +169,24 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
         },
       ],
     };
+    setSalvando(true);
+    try {
+      await cadastrar(novo, familia);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar o cadastro.");
+      setSalvando(false);
+      return;
+    }
+    setSalvando(false);
     setSucesso(true);
     onConcluido?.();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-label="Novo Cadastro"
@@ -187,14 +233,19 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                     >
                       {i < etapa ? <Check className="h-4 w-4" /> : i + 1}
                     </span>
-                    <span className={`hidden text-xs font-medium sm:block ${i === etapa ? "text-foreground" : "text-muted-foreground"}`}>
+                    <span
+                      className={`hidden text-xs font-medium sm:block ${i === etapa ? "text-foreground" : "text-muted-foreground"}`}
+                    >
                       {e}
                     </span>
                   </div>
                 ))}
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((etapa + 1) / 3) * 100}%` }} />
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${((etapa + 1) / 3) * 100}%` }}
+                />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">Etapa {etapa + 1} de 3</p>
             </div>
@@ -205,36 +256,77 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                   <h3 className="font-semibold">Etapa 1: Dados da Família e Domicílio</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label="Código da Família" erro={erros.codigo}>
-                      <input className={inputCls} value={f.codigo} onChange={(e) => set("codigo", e.target.value)} maxLength={20} />
+                      <input
+                        className={inputCls}
+                        value={f.codigo}
+                        onChange={(e) => set("codigo", e.target.value)}
+                        maxLength={20}
+                      />
                     </Field>
                     <Field label="Microárea">
-                      <select className={inputCls} value={f.microarea} onChange={(e) => set("microarea", e.target.value)}>
+                      <select
+                        className={inputCls}
+                        value={f.microarea}
+                        onChange={(e) => set("microarea", e.target.value)}
+                      >
                         <option value="MA-01">Microárea 01 - Jenipapo dos Vieiras/MA</option>
                         <option value="MA-02">Microárea 02 - Jenipapo dos Vieiras/MA</option>
                         <option value="MA-03">Microárea 03 - Jenipapo dos Vieiras/MA</option>
                       </select>
                     </Field>
                     <Field label="Rua / Avenida" erro={erros.rua}>
-                      <input className={inputCls} value={f.rua} onChange={(e) => set("rua", e.target.value)} placeholder="Ex.: Rua das Palmeiras" maxLength={120} />
+                      <input
+                        className={inputCls}
+                        value={f.rua}
+                        onChange={(e) => set("rua", e.target.value)}
+                        placeholder="Ex.: Rua das Palmeiras"
+                        maxLength={120}
+                      />
                     </Field>
                     <Field label="Número" erro={erros.numero}>
-                      <input className={inputCls} value={f.numero} onChange={(e) => set("numero", e.target.value)} placeholder="Ex.: 42" maxLength={10} />
+                      <input
+                        className={inputCls}
+                        value={f.numero}
+                        onChange={(e) => set("numero", e.target.value)}
+                        placeholder="Ex.: 42"
+                        maxLength={10}
+                      />
                     </Field>
                     <Field label="Bairro" erro={erros.bairro}>
-                      <input className={inputCls} value={f.bairro} onChange={(e) => set("bairro", e.target.value)} placeholder="Ex.: Centro" maxLength={80} />
+                      <input
+                        className={inputCls}
+                        value={f.bairro}
+                        onChange={(e) => set("bairro", e.target.value)}
+                        placeholder="Ex.: Centro"
+                        maxLength={80}
+                      />
                     </Field>
                     <Field label="Complemento">
-                      <input className={inputCls} value={f.complemento} onChange={(e) => set("complemento", e.target.value)} placeholder="Ex.: Casa B" maxLength={60} />
+                      <input
+                        className={inputCls}
+                        value={f.complemento}
+                        onChange={(e) => set("complemento", e.target.value)}
+                        placeholder="Ex.: Casa B"
+                        maxLength={60}
+                      />
                     </Field>
                     <Field label="Condição de Moradia">
-                      <select className={inputCls} value={f.moradia} onChange={(e) => set("moradia", e.target.value)}>
+                      <select
+                        className={inputCls}
+                        value={f.moradia}
+                        onChange={(e) => set("moradia", e.target.value)}
+                      >
                         <option>Própria</option>
                         <option>Alugada</option>
                         <option>Cedida</option>
                       </select>
                     </Field>
                     <Field label="Tipo de Abastecimento de Água">
-                      <select className={inputCls} value={f.agua} onChange={(e) => set("agua", e.target.value)}>
+                      <select
+                        className={inputCls}
+                        value={f.agua}
+                        onChange={(e) => set("agua", e.target.value)}
+                      >
                         <option>Rede encanada</option>
                         <option>Poço / Nascente</option>
                         <option>Cisterna</option>
@@ -251,16 +343,35 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                   <h3 className="font-semibold">Etapa 2: Identificação do Morador</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label="Nome Completo" erro={erros.nome}>
-                      <input className={inputCls} value={f.nome} onChange={(e) => set("nome", e.target.value)} maxLength={120} />
+                      <input
+                        className={inputCls}
+                        value={f.nome}
+                        onChange={(e) => set("nome", e.target.value)}
+                        maxLength={120}
+                      />
                     </Field>
                     <Field label="Nome da Mãe">
-                      <input className={inputCls} value={f.nomeMae} onChange={(e) => set("nomeMae", e.target.value)} maxLength={120} />
+                      <input
+                        className={inputCls}
+                        value={f.nomeMae}
+                        onChange={(e) => set("nomeMae", e.target.value)}
+                        maxLength={120}
+                      />
                     </Field>
                     <Field label="Data de Nascimento" erro={erros.nascimento}>
-                      <input type="date" className={inputCls} value={f.nascimento} onChange={(e) => set("nascimento", e.target.value)} />
+                      <input
+                        type="date"
+                        className={inputCls}
+                        value={f.nascimento}
+                        onChange={(e) => set("nascimento", e.target.value)}
+                      />
                     </Field>
                     <Field label="Sexo">
-                      <select className={inputCls} value={f.sexo} onChange={(e) => set("sexo", e.target.value)}>
+                      <select
+                        className={inputCls}
+                        value={f.sexo}
+                        onChange={(e) => set("sexo", e.target.value)}
+                      >
                         <option>Feminino</option>
                         <option>Masculino</option>
                       </select>
@@ -284,7 +395,11 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                       />
                     </Field>
                     <Field label="Parentesco com o Chefe de Família">
-                      <select className={inputCls} value={f.parentesco} onChange={(e) => set("parentesco", e.target.value)}>
+                      <select
+                        className={inputCls}
+                        value={f.parentesco}
+                        onChange={(e) => set("parentesco", e.target.value)}
+                      >
                         <option>Chefe de Família</option>
                         <option>Cônjuge</option>
                         <option>Filho(a)</option>
@@ -302,7 +417,10 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                     <p className={labelCls}>Grupos prioritários (e-SUS)</p>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {grupos.map((g) => (
-                        <label key={g} className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm">
+                        <label
+                          key={g}
+                          className="flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm"
+                        >
                           <input
                             type="checkbox"
                             className="h-4 w-4"
@@ -310,7 +428,9 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                             onChange={(e) =>
                               setF((p) => ({
                                 ...p,
-                                grupos: e.target.checked ? [...p.grupos, g] : p.grupos.filter((x) => x !== g),
+                                grupos: e.target.checked
+                                  ? [...p.grupos, g]
+                                  : p.grupos.filter((x) => x !== g),
                               }))
                             }
                           />
@@ -323,8 +443,16 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                     <p className={labelCls}>Caderneta de Vacinação</p>
                     <div className="flex gap-3">
                       {["Em dia", "Pendente"].map((v) => (
-                        <label key={v} className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm">
-                          <input type="radio" name="vacina" checked={f.vacina === v} onChange={() => set("vacina", v)} />
+                        <label
+                          key={v}
+                          className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm"
+                        >
+                          <input
+                            type="radio"
+                            name="vacina"
+                            checked={f.vacina === v}
+                            onChange={() => set("vacina", v)}
+                          />
                           {v}
                         </label>
                       ))}
@@ -350,10 +478,11 @@ export function NovoCadastroWizard({ onClose, onConcluido }: { onClose: () => vo
                 </button>
               ) : (
                 <button
-                  onClick={concluir}
+                  onClick={() => void concluir()}
+                  disabled={salvando}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-success px-5 py-2.5 text-sm font-semibold text-success-foreground hover:opacity-90"
                 >
-                  <Check className="h-4 w-4" /> Concluir Cadastro
+                  <Check className="h-4 w-4" /> {salvando ? "Salvando..." : "Concluir Cadastro"}
                 </button>
               )}
             </div>

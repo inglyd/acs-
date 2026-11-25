@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, HeartPulse, MapPin, Search, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
-import { condicaoBadgeClasses, familias, visitas, type Morador } from "@/components/ACSPanel";
+import { condicaoBadgeClasses, type Morador } from "@/components/ACSPanel";
+import { useACS } from "@/lib/acs-workspace";
 
 export const Route = createFileRoute("/_authenticated/familias")({
   head: () => ({
@@ -25,7 +26,9 @@ export const Route = createFileRoute("/_authenticated/familias")({
 });
 
 function FamiliaModal({ morador, onClose }: { morador: Morador; onClose: () => void }) {
-  const familia = familias[morador.nome]!;
+  const { familias } = useACS();
+  const familia = familias[morador.nome];
+  if (!familia) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -56,7 +59,9 @@ function FamiliaModal({ morador, onClose }: { morador: Morador; onClose: () => v
 
         <div className="mt-6 space-y-5 text-sm">
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Dados da Família</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Dados da Família
+            </h3>
             <div className="grid grid-cols-2 gap-3 rounded-lg border bg-background p-4">
               <div>
                 <p className="text-xs text-muted-foreground">Código da Família</p>
@@ -117,7 +122,9 @@ function FamiliaModal({ morador, onClose }: { morador: Morador; onClose: () => v
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Histórico da Família</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Histórico da Família
+            </h3>
             <ul className="space-y-1.5 rounded-lg border bg-background p-4">
               {familia.historico.map((h) => (
                 <li key={h.data} className="flex gap-2">
@@ -144,6 +151,7 @@ function FamiliaModal({ morador, onClose }: { morador: Morador; onClose: () => v
 }
 
 function FamiliasPage() {
+  const { familias, visitas } = useACS();
   const [busca, setBusca] = useState("");
   const [selecionada, setSelecionada] = useState<Morador | null>(null);
 
@@ -161,7 +169,7 @@ function FamiliasPage() {
           f.integrantes.some((i) => i.nome.toLowerCase().includes(termo))
         );
       });
-  }, [busca]);
+  }, [busca, familias, visitas]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,7 +180,7 @@ function FamiliasPage() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-sm font-semibold">Famílias</h1>
         <Link
-          to="/"
+          to="/dashboard"
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
@@ -186,7 +194,8 @@ function FamiliasPage() {
               <UsersRound className="h-6 w-6 text-primary" /> Famílias Acompanhadas
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Clique no nome da família para ver responsável, integrantes, condições de saúde e histórico.
+              Clique no nome da família para ver responsável, integrantes, condições de saúde e
+              histórico.
             </p>
           </div>
           <div className="relative w-full max-w-xs">
@@ -238,7 +247,9 @@ function FamiliasPage() {
         </ul>
 
         {lista.length === 0 && (
-          <p className="mt-10 text-center text-sm text-muted-foreground">Nenhuma família encontrada.</p>
+          <p className="mt-10 text-center text-sm text-muted-foreground">
+            Nenhuma família encontrada.
+          </p>
         )}
       </main>
 

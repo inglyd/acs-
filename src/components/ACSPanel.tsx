@@ -6,6 +6,14 @@ export type { Morador, MoradorVisita, Familia, Integrante } from "@/lib/acs-mode
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   Activity,
   AlertTriangle,
   Bell,
@@ -17,6 +25,7 @@ import {
   Home,
   Info,
   MapPin,
+  Menu,
   Search,
   Settings,
   UserPlus,
@@ -87,12 +96,23 @@ export function RegistrarVisitaModal({
               if (!nome || enviando) return;
               setEnviando(true);
               try {
-                const [a,m,d] = String(f.get("data")).split("-");
-                await salvar("visita", { data: `${d}/${m}/${a}`, moradorNome: nome, motivo: String(f.get("motivo")), desfecho: String(f.get("desfecho")), observacoes: String(f.get("observacoes")) });
+                const [a, m, d] = String(f.get("data")).split("-");
+                await salvar("visita", {
+                  data: `${d}/${m}/${a}`,
+                  moradorNome: nome,
+                  motivo: String(f.get("motivo")),
+                  desfecho: String(f.get("desfecho")),
+                  observacoes: String(f.get("observacoes")),
+                });
                 setSalvo(true);
                 setTimeout(onClose, 1200);
-              } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível salvar a visita."); }
-              finally { setEnviando(false); }
+              } catch (error) {
+                toast.error(
+                  error instanceof Error ? error.message : "Não foi possível salvar a visita.",
+                );
+              } finally {
+                setEnviando(false);
+              }
             }}
           >
             {!morador && (
@@ -127,7 +147,8 @@ export function RegistrarVisitaModal({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Observações do Atendimento</label>
-              <textarea name="observacoes"
+              <textarea
+                name="observacoes"
                 rows={3}
                 placeholder="Ex.: PA aferida, orientações reforçadas..."
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
@@ -135,7 +156,8 @@ export function RegistrarVisitaModal({
             </div>
             <div className="flex gap-3 pt-2">
               <Button
-                type="submit" disabled={enviando || visitas.length === 0}
+                type="submit"
+                disabled={enviando || visitas.length === 0}
                 className="flex-1 rounded-lg bg-success px-4 py-2.5 text-sm font-semibold text-success-foreground hover:opacity-90"
               >
                 {enviando ? "Salvando..." : "Salvar Visita"}
@@ -159,7 +181,8 @@ export function condicaoBadgeClasses(condicao: string) {
   const c = condicao.toLowerCase();
   if (c.includes("gestante")) return "bg-chart-3/15 text-chart-3 border-chart-3/20";
   if (c.includes("hipertenso")) return "bg-destructive/10 text-destructive border-destructive/20";
-  if (c.includes("diabético") || c.includes("diabetico")) return "bg-primary/10 text-primary border-primary/20";
+  if (c.includes("diabético") || c.includes("diabetico"))
+    return "bg-primary/10 text-primary border-primary/20";
   if (c.includes("idoso")) return "bg-warning/30 text-warning-foreground border-warning/40";
   if (c.includes("puericultura")) return "bg-success/15 text-success border-success/20";
   if (c.includes("tuberculose")) return "bg-muted text-muted-foreground border-input";
@@ -167,7 +190,7 @@ export function condicaoBadgeClasses(condicao: string) {
 }
 
 function calcularIdade(dataNascimento: string) {
-  const [dia, mes, ano] = dataNascimento.split('/').map(Number);
+  const [dia, mes, ano] = dataNascimento.split("/").map(Number);
   if (!ano || !mes || !dia) return 0;
   const nascimento = new Date(ano, mes - 1, dia);
   const hoje = new Date();
@@ -215,10 +238,14 @@ export function DetalhesMoradorModal({
 
         <div className="mt-6 space-y-5">
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Identificação do SUS</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Identificação do SUS
+            </h3>
             <div className="space-y-3 rounded-lg border bg-background p-4 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">CPF · Identificador Principal do Cartão SUS</p>
+                <p className="text-xs text-muted-foreground">
+                  CPF · Identificador Principal do Cartão SUS
+                </p>
                 <p className="mt-0.5 text-lg font-bold text-primary">{morador.cpf}</p>
               </div>
               <div>
@@ -229,7 +256,9 @@ export function DetalhesMoradorModal({
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Dados Pessoais</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Dados Pessoais
+            </h3>
             <div className="grid grid-cols-2 gap-3 rounded-lg border bg-background p-4 text-sm">
               <div className="col-span-2">
                 <p className="text-xs text-muted-foreground">Nome Completo</p>
@@ -239,7 +268,9 @@ export function DetalhesMoradorModal({
                 <p className="text-xs text-muted-foreground">Data de Nascimento</p>
                 <p className="font-medium">
                   {morador.dataNascimento}{" "}
-                  <span className="text-muted-foreground">({calcularIdade(morador.dataNascimento)} anos)</span>
+                  <span className="text-muted-foreground">
+                    ({calcularIdade(morador.dataNascimento)} anos)
+                  </span>
                 </p>
               </div>
               <div>
@@ -254,7 +285,9 @@ export function DetalhesMoradorModal({
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Endereço & Microárea</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Endereço & Microárea
+            </h3>
             <div className="rounded-lg border bg-background p-4 text-sm">
               <p className="font-medium">
                 {morador.logradouro}, {morador.numero}
@@ -267,7 +300,9 @@ export function DetalhesMoradorModal({
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Condições de Saúde</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Condições de Saúde
+            </h3>
             <div className="flex flex-wrap gap-2">
               {morador.condicoes.map((c) => (
                 <span
@@ -281,7 +316,9 @@ export function DetalhesMoradorModal({
           </div>
 
           <div>
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Histórico Recente</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+              Histórico Recente
+            </h3>
             <div className="grid grid-cols-2 gap-3 rounded-lg border bg-background p-4 text-sm">
               <div>
                 <p className="text-xs text-muted-foreground">Última Visita Realizada</p>
@@ -296,7 +333,9 @@ export function DetalhesMoradorModal({
 
           {familias[morador.nome] && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">Família</h3>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary">
+                Família
+              </h3>
               <div className="space-y-4 rounded-lg border bg-background p-4 text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -357,7 +396,9 @@ export function DetalhesMoradorModal({
                 </div>
 
                 <div>
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Histórico da Família</p>
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">
+                    Histórico da Família
+                  </p>
                   <ul className="space-y-1.5">
                     {familias[morador.nome]?.historico.map((h) => (
                       <li key={h.data} className="flex gap-2">
@@ -371,7 +412,6 @@ export function DetalhesMoradorModal({
             </div>
           )}
         </div>
-
 
         <div className="mt-6 flex gap-3">
           <Button
@@ -401,7 +441,13 @@ const kpis = [
   { title: "Total de Famílias", value: 176, icon: UsersRound, tone: "primary" },
   { title: "Moradores Acompanhados", value: 344, icon: Users, tone: "success" },
   { title: "Visitas Realizadas no Mês", value: 29, icon: ClipboardList, tone: "chart3" },
-  { title: "Visitas em Atraso", value: 14, icon: AlertTriangle, tone: "destructive", highlight: true },
+  {
+    title: "Visitas em Atraso",
+    value: 14,
+    icon: AlertTriangle,
+    tone: "destructive",
+    highlight: true,
+  },
 ] as const;
 
 type Notificacao = {
@@ -539,7 +585,9 @@ function NotificacoesPopover({
           <div>
             <h3 className="font-semibold">Notificações de Alertas</h3>
             <p className="text-xs text-muted-foreground">
-              {naoLidas === 0 ? "Todas lidas" : `${naoLidas} não ${naoLidas === 1 ? "lida" : "lidas"}`}
+              {naoLidas === 0
+                ? "Todas lidas"
+                : `${naoLidas} não ${naoLidas === 1 ? "lida" : "lidas"}`}
             </p>
           </div>
           <Button
@@ -555,7 +603,9 @@ function NotificacoesPopover({
 
         <div className="max-h-[70vh] overflow-y-auto md:max-h-96">
           {notificacoes.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma notificação no momento.</div>
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              Nenhuma notificação no momento.
+            </div>
           ) : (
             <ul className="divide-y">
               {notificacoes.map((n) => {
@@ -566,7 +616,9 @@ function NotificacoesPopover({
                     key={n.id}
                     className={`flex gap-3 px-4 py-3 ${n.lida ? "bg-muted/30" : "bg-card"}`}
                   >
-                    <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${badge}`}>
+                    <div
+                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${badge}`}
+                    >
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -608,7 +660,9 @@ function NotificacoesPopover({
                           className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                           title={n.lida ? "Marcar como não lida" : "Marcar como lida"}
                         >
-                          <Check className={`h-3.5 w-3.5 ${n.lida ? "text-muted-foreground" : "text-primary"}`} />
+                          <Check
+                            className={`h-3.5 w-3.5 ${n.lida ? "text-muted-foreground" : "text-primary"}`}
+                          />
                           {n.lida ? "Não lida" : "Lida"}
                         </Button>
                       </div>
@@ -673,7 +727,9 @@ function MenuPerfil({ onSair }: { onSair: () => void }) {
         </span>
         <span className="hidden text-left lg:block">
           <span className="block text-sm font-medium leading-tight">{perfil.nome}</span>
-          <span className="block text-xs leading-tight text-muted-foreground">ACS · {perfil.microarea}</span>
+          <span className="block text-xs leading-tight text-muted-foreground">
+            ACS · {perfil.microarea}
+          </span>
         </span>
         <ChevronDown
           className={`hidden h-4 w-4 text-muted-foreground transition lg:block ${aberto ? "rotate-180" : ""}`}
@@ -721,15 +777,33 @@ export function DashboardPage() {
   const { perfil, visitas, salvar, notificacoesLidas } = conta;
   const numeros = resumo(conta);
   const valores = [numeros.familias, numeros.moradores, numeros.visitas, numeros.atrasadas];
-  const notificacoes: Notificacao[] = visitas.filter(m => (conta.preferencias.alertaAtraso && m.prazoTone === "destructive") || (conta.preferencias.alertaVacina && m.condicoes.includes("Vacina pendente"))).map(m => ({ id: m.cpf, categoria: m.prazoTone === "destructive" ? "urgente" : "prazo", titulo: m.prazoTone === "destructive" ? "Visita atrasada" : "Vacina pendente", descricao: `${m.nome} · ${m.motivo}`, morador: m.nome, lida: notificacoesLidas.includes(m.cpf) }));
-  const atualizarLidas = (ids: string[]) => { void salvar("notificacoes",ids).catch(()=>toast.error("Não foi possível atualizar as notificações.")); };
+  const notificacoes: Notificacao[] = visitas
+    .filter(
+      (m) =>
+        (conta.preferencias.alertaAtraso && m.prazoTone === "destructive") ||
+        (conta.preferencias.alertaVacina && m.condicoes.includes("Vacina pendente")),
+    )
+    .map((m) => ({
+      id: m.cpf,
+      categoria: m.prazoTone === "destructive" ? "urgente" : "prazo",
+      titulo: m.prazoTone === "destructive" ? "Visita atrasada" : "Vacina pendente",
+      descricao: `${m.nome} · ${m.motivo}`,
+      morador: m.nome,
+      lida: notificacoesLidas.includes(m.cpf),
+    }));
+  const atualizarLidas = (ids: string[]) => {
+    void salvar("notificacoes", ids).catch(() =>
+      toast.error("Não foi possível atualizar as notificações."),
+    );
+  };
   const [activeNav, setActiveNav] = useState("Dashboard");
   const [visitaAberta, setVisitaAberta] = useState<MoradorVisita | null>(null);
   const [modalAberta, setModalAberta] = useState(false);
   const [detalhesMorador, setDetalhesMorador] = useState<Morador | null>(null);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [busca, setBusca] = useState("");
   const [wizardAberto, setWizardAberto] = useState(false);
-  const [, setVersao] = useState(0);
   const hoje = new Date().toLocaleDateString("pt-BR", {
     weekday: "long",
     day: "numeric",
@@ -771,7 +845,12 @@ export function DashboardPage() {
               </>
             );
             return (
-              <Link key={item.title} to={item.to} onClick={() => setActiveNav(item.title)} className={cls}>
+              <Link
+                key={item.title}
+                to={item.to}
+                onClick={() => setActiveNav(item.title)}
+                className={cls}
+              >
                 {inner}
               </Link>
             );
@@ -800,16 +879,72 @@ export function DashboardPage() {
       <div className="flex min-h-screen flex-1 flex-col md:pl-64">
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b bg-card px-4 md:px-8">
-          <div className="flex md:hidden items-center gap-2 font-bold text-primary">
+          <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-label="Abrir menu de navegação"
+                className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground hover:bg-muted md:hidden"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="w-72 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground"
+            >
+              <SheetHeader className="px-6 py-6 text-left">
+                <SheetTitle className="flex items-center gap-3 text-sidebar-accent-foreground">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground">
+                    <HeartPulse className="h-6 w-6" />
+                  </span>
+                  ACS+
+                </SheetTitle>
+                <SheetDescription className="text-sidebar-foreground/70">
+                  {perfil.nome} · {perfil.microarea}
+                </SheetDescription>
+              </SheetHeader>
+              <nav aria-label="Navegação principal" className="space-y-1 px-3">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.title}
+                    to={item.to}
+                    onClick={() => setMenuAberto(false)}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-3 text-base font-medium text-sidebar-foreground/90 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" />
+                    <span className="flex-1 text-left">{item.title}</span>
+                    {"badge" in item && item.badge && numeros.atrasadas > 0 && (
+                      <span className="rounded-full bg-destructive px-2 py-0.5 text-xs font-semibold text-destructive-foreground">
+                        {numeros.atrasadas}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </nav>
+            </SheetContent>
+          </Sheet>
+          <div className="hidden items-center gap-2 font-bold text-primary sm:flex md:hidden">
             <HeartPulse className="h-6 w-6" /> ACS+
           </div>
           <div className="relative flex-1 max-w-xl">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Buscar morador, CPF, família..."
-              className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-            />
+            <form
+              role="search"
+              onSubmit={(e) => {
+                e.preventDefault();
+                navigate({ to: "/moradores", search: { busca: busca.trim() } });
+              }}
+            >
+              <input
+                type="search"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                aria-label="Buscar morador, CPF ou família"
+                placeholder="Buscar morador, CPF, família..."
+                className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+              />
+            </form>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div className="relative">
@@ -831,9 +966,13 @@ export function DashboardPage() {
                 <NotificacoesPopover
                   notificacoes={notificacoes}
                   onClose={() => setNotificacoesAbertas(false)}
-                  onLerTodas={() => atualizarLidas(notificacoes.map(n=>n.id))}
+                  onLerTodas={() => atualizarLidas(notificacoes.map((n) => n.id))}
                   onToggleLida={(id) =>
-                    atualizarLidas(notificacoesLidas.includes(id) ? notificacoesLidas.filter(x=>x!==id) : [...notificacoesLidas,id])
+                    atualizarLidas(
+                      notificacoesLidas.includes(id)
+                        ? notificacoesLidas.filter((x) => x !== id)
+                        : [...notificacoesLidas, id],
+                    )
                   }
                   onVerDetalhes={(m) => {
                     setNotificacoesAbertas(false);
@@ -862,9 +1001,12 @@ export function DashboardPage() {
           <section className="flex flex-col gap-4 rounded-xl bg-primary p-6 text-primary-foreground md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm capitalize opacity-80">{hoje}</p>
-              <h1 className="mt-1 text-2xl font-bold">Olá, {perfil.nome.split(" ")[0]}! Bom dia de trabalho.</h1>
+              <h1 className="mt-1 text-2xl font-bold">
+                Olá, {perfil.nome.split(" ")[0]}! Bom dia de trabalho.
+              </h1>
               <p className="mt-1 text-sm opacity-80">
-                {perfil.microarea} · {perfil.ubs} · {numeros.familias} famílias sob seu acompanhamento.
+                {perfil.microarea} · {perfil.ubs} · {numeros.familias} famílias sob seu
+                acompanhamento.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -874,9 +1016,7 @@ export function DashboardPage() {
               >
                 <UserPlus className="h-4 w-4" /> Novo Cadastro
               </Button>
-              {wizardAberto && (
-                <NovoCadastroWizard onClose={() => setWizardAberto(false)} onConcluido={() => setVersao((v) => v + 1)} />
-              )}
+              {wizardAberto && <NovoCadastroWizard onClose={() => setWizardAberto(false)} />}
               <Button
                 onClick={() => {
                   setVisitaAberta(null);
@@ -896,7 +1036,9 @@ export function DashboardPage() {
               <div
                 key={kpi.title}
                 className={`rounded-xl border bg-card p-5 shadow-sm ${
-                  "highlight" in kpi && kpi.highlight ? "border-destructive/40 bg-destructive/5" : ""
+                  "highlight" in kpi && kpi.highlight
+                    ? "border-destructive/40 bg-destructive/5"
+                    : ""
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -915,14 +1057,20 @@ export function DashboardPage() {
                     <kpi.icon className="h-5 w-5" />
                   </div>
                 </div>
-                <p className={`mt-2 text-3xl font-bold ${"highlight" in kpi && kpi.highlight ? "text-destructive" : ""}`}>
+                <p
+                  className={`mt-2 text-3xl font-bold ${"highlight" in kpi && kpi.highlight ? "text-destructive" : ""}`}
+                >
                   {valores[index]}
                 </p>
                 {"highlight" in kpi && kpi.highlight ? (
-                  <p className="mt-1 text-xs font-medium text-destructive">Requer atenção imediata</p>
+                  <p className="mt-1 text-xs font-medium text-destructive">
+                    Requer atenção imediata
+                  </p>
                 ) : (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {kpi.title === "Visitas Realizadas no Mês" ? "Meta: 60 visitas" : perfil.microarea}
+                    {kpi.title === "Visitas Realizadas no Mês"
+                      ? "Meta: 60 visitas"
+                      : perfil.microarea}
                   </p>
                 )}
               </div>
@@ -937,7 +1085,9 @@ export function DashboardPage() {
                 <Activity className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold">Metas de Visitas do Mês</h2>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{new Date().toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+              </p>
 
               <div className="mt-6 space-y-5">
                 <div>
@@ -946,29 +1096,58 @@ export function DashboardPage() {
                     <span className="text-muted-foreground">{numeros.visitas} / 60</span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100,numeros.visitas/60*100)}%` }} />
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${Math.min(100, (numeros.visitas / 60) * 100)}%` }}
+                    />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{Math.round(numeros.visitas/60*100)}% da meta mensal</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {Math.round((numeros.visitas / 60) * 100)}% da meta mensal
+                  </p>
                 </div>
                 <div>
                   <div className="mb-1.5 flex justify-between text-sm">
                     <span className="font-medium">Gestantes visitadas</span>
-                    <span className="text-muted-foreground">{numeros.gestantesVisitadas} / {numeros.gestantes}</span>
+                    <span className="text-muted-foreground">
+                      {numeros.gestantesVisitadas} / {numeros.gestantes}
+                    </span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-success" style={{ width: `${numeros.gestantes ? numeros.gestantesVisitadas/numeros.gestantes*100 : 0}%` }} />
+                    <div
+                      className="h-full rounded-full bg-success"
+                      style={{
+                        width: `${numeros.gestantes ? (numeros.gestantesVisitadas / numeros.gestantes) * 100 : 0}%`,
+                      }}
+                    />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{numeros.gestantes ? Math.round(numeros.gestantesVisitadas/numeros.gestantes*100) : 0}% da meta</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {numeros.gestantes
+                      ? Math.round((numeros.gestantesVisitadas / numeros.gestantes) * 100)
+                      : 0}
+                    % da meta
+                  </p>
                 </div>
                 <div>
                   <div className="mb-1.5 flex justify-between text-sm">
                     <span className="font-medium">Hipertensos/Diabéticos</span>
-                    <span className="text-muted-foreground">{numeros.cronicosVisitados} / {numeros.cronicos}</span>
+                    <span className="text-muted-foreground">
+                      {numeros.cronicosVisitados} / {numeros.cronicos}
+                    </span>
                   </div>
                   <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-warning" style={{ width: `${numeros.cronicos ? numeros.cronicosVisitados/numeros.cronicos*100 : 0}%` }} />
+                    <div
+                      className="h-full rounded-full bg-warning"
+                      style={{
+                        width: `${numeros.cronicos ? (numeros.cronicosVisitados / numeros.cronicos) * 100 : 0}%`,
+                      }}
+                    />
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{numeros.cronicos ? Math.round(numeros.cronicosVisitados/numeros.cronicos*100) : 0}% da meta</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {numeros.cronicos
+                      ? Math.round((numeros.cronicosVisitados / numeros.cronicos) * 100)
+                      : 0}
+                    % da meta
+                  </p>
                 </div>
               </div>
 
@@ -1016,7 +1195,9 @@ export function DashboardPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${prazoClasses(v.prazoTone)}`}>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-xs font-medium ${prazoClasses(v.prazoTone)}`}
+                          >
                             {v.prazo}
                           </span>
                         </td>
@@ -1059,5 +1240,3 @@ export function DashboardPage() {
     </div>
   );
 }
-export const familias: Record<string, import("@/lib/acs-model").Familia> = {};
-export const visitas: import("@/lib/acs-model").Morador[] = [];

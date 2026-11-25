@@ -1,15 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, HeartPulse, MapPin, Search, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DetalhesMoradorModal,
   RegistrarVisitaModal,
   condicaoBadgeClasses,
-  familias,
-  visitas,
   type Morador,
   type MoradorVisita,
 } from "@/components/ACSPanel";
+import { useACS } from "@/lib/acs-workspace";
 
 export const Route = createFileRoute("/_authenticated/moradores")({
   head: () => ({
@@ -23,17 +22,24 @@ export const Route = createFileRoute("/_authenticated/moradores")({
       { property: "og:title", content: "ACS+ | Moradores Registrados" },
       {
         property: "og:description",
-        content: "Lista de moradores com identificação SUS, vínculo familiar, condições de saúde e histórico.",
+        content:
+          "Lista de moradores com identificação SUS, vínculo familiar, condições de saúde e histórico.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): { busca: string } => ({
+    busca: typeof search["busca"] === "string" ? search["busca"] : "",
+  }),
   component: MoradoresPage,
 });
 
 function MoradoresPage() {
-  const [busca, setBusca] = useState("");
+  const { familias, visitas } = useACS();
+  const { busca: buscaInicial } = Route.useSearch();
+  const [busca, setBusca] = useState(buscaInicial);
+  useEffect(() => setBusca(buscaInicial), [buscaInicial]);
   const [selecionado, setSelecionado] = useState<Morador | null>(null);
   const [visitaPara, setVisitaPara] = useState<MoradorVisita | null>(null);
 
@@ -48,7 +54,7 @@ function MoradoresPage() {
         m.bairro.toLowerCase().includes(termo) ||
         m.condicoes.some((c) => c.toLowerCase().includes(termo)),
     );
-  }, [busca]);
+  }, [busca, visitas]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,7 +65,7 @@ function MoradoresPage() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-sm font-semibold">Moradores</h1>
         <Link
-          to="/"
+          to="/dashboard"
           className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <ArrowLeft className="h-4 w-4" /> Voltar ao Dashboard
@@ -73,8 +79,8 @@ function MoradoresPage() {
               <Users className="h-6 w-6 text-primary" /> Moradores Registrados
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Clique no nome do morador para ver identificação, vínculo familiar, condições de saúde e histórico de
-              visitas.
+              Clique no nome do morador para ver identificação, vínculo familiar, condições de saúde
+              e histórico de visitas.
             </p>
           </div>
           <div className="relative w-full max-w-xs">
@@ -158,7 +164,9 @@ function MoradoresPage() {
             </tbody>
           </table>
           {lista.length === 0 && (
-            <p className="px-4 py-10 text-center text-sm text-muted-foreground">Nenhum morador encontrado.</p>
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+              Nenhum morador encontrado.
+            </p>
           )}
         </div>
       </main>
@@ -173,7 +181,9 @@ function MoradoresPage() {
           }}
         />
       )}
-      {visitaPara && <RegistrarVisitaModal morador={visitaPara} onClose={() => setVisitaPara(null)} />}
+      {visitaPara && (
+        <RegistrarVisitaModal morador={visitaPara} onClose={() => setVisitaPara(null)} />
+      )}
     </div>
   );
 }
